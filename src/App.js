@@ -1,11 +1,65 @@
 
 import './App.css';
-import { Row, Col, Container, Button } from "react-bootstrap";
-
-//image
+import React, { useState } from 'react';
+import { Row, Col, Container, Button, Modal } from "react-bootstrap";
+import axios from 'axios';
+import { Pie } from 'react-chartjs-2';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'; // Import specific elements
 import crop from './assets/crops.jpg';
 
+ChartJS.register(ArcElement, Tooltip, Legend); // Register the elements
+
+
+//image
+
 function App() {
+
+  const [show, setShow] = useState(false);
+  const handleClose = () => setShow(false);
+  const handleShow = () => setShow(true);
+
+  const [file, setFile] = useState(null);
+  const [response, setResponse] = useState('');
+  const [predictionData, setPredictionData] = useState({});
+
+
+  const handleImageChange = (e) => {
+    console.log("File Selected");
+    setFile(e.target.files[0]);
+  }
+
+  //on form submit
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await axios.post('http://localhost:5001/predict', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      console.log(res.data);
+      setResponse(res.data.predicted_class);
+      setPredictionData(res.data.prediction_percentages);
+      handleShow();
+    } catch (error) {
+      console.log(error);
+    }
+  }
+  // Prepare data for pie chart
+  const chartData = {
+    labels: Object.keys(predictionData),
+    datasets: [
+      {
+        data: Object.values(predictionData), // Get values for the pie chart
+        backgroundColor: ['#FF6384', '#36A2EB'], // Colors for each slice
+        hoverBackgroundColor: ['#FF6384', '#36A2EB']
+      }
+    ]
+  };
+
+
   return (
     <div className="App">
       <Row style={{ height: "100%" }}>
@@ -29,14 +83,17 @@ function App() {
             </p>
             <br />
             <form>
-              <input type="file" name="image" />
+              <input type="file" name="file" accept='.pt'
+                onChange={handleImageChange}
+              />
               <br />
               <br />
-              <Button type="submit">Upload Image</Button>
+              <Button
+                type='submit'
+                onClick={handleSubmit}
+              >Upload Image</Button>
 
             </form>
-
-
 
           </Container>
         </Col>
@@ -48,11 +105,27 @@ function App() {
               objectFit: "cover",
             }}
           />
-
         </Col>
       </Row>
+      <Modal show={show} onHide={handleClose}>
+        <Modal.Header closeButton>
+          <Modal.Title>AI Response</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {/* Center */}
+
+          <h1
+            style={{ textAlign: "center" }}
+          >{response}</h1>
+          <Pie data={chartData} />
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleClose}>
+            Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 }
-
 export default App;
